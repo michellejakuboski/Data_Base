@@ -165,3 +165,180 @@ END;
 -- 4 criar um procedimento armazenado que liste os clientes de uma cidade espectativa com 
 -- idade menor ou igual a solicitada. a resultante ter  3 colunas: 
 -- [Nome do cliente] [Data de nascimento] [Idade]
+
+
+===========================================================================================
+
+
+-- TABELA PRODUTO
+CREATE TABLE Produto
+(
+	ID_PRODUTO INT PRIMARY KEY identity(1,1),
+	DESCRICAO VARCHAR(50),
+	PRECO DECIMAL(10,2)
+);
+
+
+-- TABELA SALDO
+CREATE TABLE Saldo
+(
+	ID_PRODUTO INT FOREIGN KEY REFERENCES Produto (ID_PRODUTO),
+	Saldo_Produto INT
+);
+
+-- TABELA COMPRA
+CREATE TABLE Compra
+(
+	ID_COMPRA INT PRIMARY KEY identity(1,1),
+	ID_PRODUTO INT,
+	DATA_COMPRA datetime,
+	DESCRICAO varchar(80),
+	UN int,
+	PRECO decimal(3,2),
+	QTD_Compra INT
+);
+
+-- TABELA VENDA
+CREATE TABLE Venda
+(
+	ID_VENDA INT PRIMARY KEY identity(1,1),
+	ID_PRODUTO INT,
+	QTD_Venda INT,
+	Valor_Total DECIMAL(10,2),
+	n_parcelas INT,
+	DATA_VENDA DATE
+);
+
+-- TABELA CONTAS A RECEBER
+CREATE TABLE Contas_Receber
+(
+	ID_Venda INT FOREIGN KEY REFERENCES Venda (ID_VENDA),
+	Num_Parcela INT,
+	Data_Vencimento DATE,
+	Valor_Parcela MONEY
+);
+
+
+-- TABELA FERIADOS
+CREATE TABLE Feriados
+(
+	Data_Feriado DATE
+);
+
+
+-- PRODUTOS
+
+
+INSERT INTO Produto
+VALUES
+(1,'Shampoo',20.00),
+(2,'Condicionador',25.00);
+
+-- SALDO INICIAL
+
+INSERT INTO Saldo
+VALUES
+(1,100),
+(2,100);
+
+-- FERIADO
+
+INSERT INTO Feriados
+VALUES
+('2026-12-25');
+
+-- TRIGGER VENDA
+CREATE TRIGGER TRG_VENDA
+ON Venda
+AFTER INSERT
+AS
+BEGIN
+
+	UPDATE Saldo
+	SET Saldo_Produto = Saldo_Produto - inserted.QTD_Venda
+	FROM inserted
+	WHERE Saldo.ID_PRODUTO = inserted.ID_PRODUTO;
+
+END;
+
+-- TRIGGER COMPRA
+CREATE TRIGGER TRG_COMPRA
+ON Compra
+AFTER INSERT
+AS
+BEGIN
+
+	UPDATE Saldo
+	SET Saldo_Produto = Saldo_Produto + inserted.QTD_Compra
+	FROM inserted
+	WHERE Saldo.ID_PRODUTO = inserted.ID_PRODUTO;
+
+END;
+
+-- TRIGGER PARCELAS
+
+CREATE TRIGGER TRG_PARCELAS
+ON Venda
+AFTER INSERT
+AS
+BEGIN
+
+	DECLARE @ID INT
+	DECLARE @VALOR MONEY
+	DECLARE @PARCELAS INT
+	DECLARE @VALORPARCELA MONEY
+	DECLARE @DATA DATE
+	DECLARE @I INT = 1
+
+	SELECT
+		@ID = ID_VENDA,
+		@VALOR = Valor_Total,
+		@PARCELAS = n_parcelas,
+		@DATA = DATA_VENDA
+	FROM inserted
+
+	SET @VALORPARCELA = @VALOR / @PARCELAS
+
+	WHILE @I <= @PARCELAS
+	BEGIN
+
+		INSERT INTO Contas_A_Receber
+		VALUES
+		(
+			@ID,
+			@I,
+			DATEADD(MONTH,@I,@DATA),
+			@VALORPARCELA
+		)
+
+		SET @I = @I + 1
+
+	END
+
+END;
+
+-- ===================================
+-- TESTE COMPRA
+-- ===================================
+
+INSERT INTO Compra
+VALUES
+(1,2,25);
+
+-- ===================================
+-- TESTE VENDA
+-- ===================================
+
+INSERT INTO Venda
+VALUES
+(1,1,5,300,3,GETDATE());
+
+-- ===================================
+-- CONSULTAS
+-- ===================================
+
+SELECT * FROM Produto;
+SELECT * FROM Saldo;
+SELECT * FROM Compra;
+SELECT * FROM Venda;
+SELECT * FROM Contas_A_Receber;
